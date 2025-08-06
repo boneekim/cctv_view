@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CCTV 검색</title>
+    <style>
+        body {
+            font-family: sans-serif;
+            margin: 2em;
+        }
+        #results {
+            margin-top: 1em;
+            border-collapse: collapse;
+            width: 100%;
+        }
+        #results th, #results td {
+            border: 1px solid #ddd;
+            padding: 8px;
+        }
+        #results th {
+            background-color: #f2f2f2;
+        }
+        #results tbody tr:hover {
+            background-color: #f5f5f5;
+            cursor: pointer;
+        }
+        #video-container {
+            margin-top: 2em;
+        }
+    </style>
+</head>
+<body>
+    <h1>CCTV 검색</h1>
+    <form id="search-form">
+        <input type="text" id="location" placeholder="위치를 입력하세요 (예: 서울)" required>
+        <button type="submit">검색</button>
+    </form>
+
+    <table id="results">
+        <thead>
+            <tr>
+                <th>CCTV 이름</th>
+                <th>좌표</th>
+            </tr>
+        </thead>
+        <tbody>
+            <!-- CCTV 데이터가 여기에 동적으로 추가됩니다. -->
+        </tbody>
+    </table>
+
+    <div id="video-container">
+        <video id="cctv-video" width="640" height="480" controls autoplay muted>
+            <source src="" type="application/x-mpegURL">
+            Your browser does not support the video tag.
+        </video>
+    </div>
+
+    <script>
+        document.getElementById('search-form').addEventListener('submit', async function(event) {
+            event.preventDefault();
+            const location = document.getElementById('location').value;
+            const response = await fetch(`/cctv/${location}`);
+            const data = await response.json();
+            const resultsBody = document.querySelector('#results tbody');
+            resultsBody.innerHTML = ''; // 이전 결과 초기화
+
+            if (data.cctv_list) {
+                data.cctv_list.forEach(cctv => {
+                    const row = document.createElement('tr');
+                    row.dataset.cctvId = cctv.cctvid;
+                    const nameCell = document.createElement('td');
+                    nameCell.textContent = cctv.cctvname;
+                    const coordCell = document.createElement('td');
+                    coordCell.textContent = `(${cctv.coordx}, ${cctv.coordy})`;
+                    row.appendChild(nameCell);
+                    row.appendChild(coordCell);
+                    resultsBody.appendChild(row);
+                });
+            } else {
+                const row = document.createElement('tr');
+                const cell = document.createElement('td');
+                cell.colSpan = 2;
+                cell.textContent = data.message || '데이터를 불러오는 데 실패했습니다.';
+                row.appendChild(cell);
+                resultsBody.appendChild(row);
+            }
+        });
+
+        document.querySelector('#results tbody').addEventListener('click', async function(event) {
+            const row = event.target.closest('tr');
+            if (!row) return;
+
+            const cctvId = row.dataset.cctvId;
+            const response = await fetch(`/cctv/stream/${cctvId}`);
+            const data = await response.json();
+
+            if (data.stream_url) {
+                const videoPlayer = document.getElementById('cctv-video');
+                const videoSource = videoPlayer.querySelector('source');
+                videoSource.src = data.stream_url;
+                videoPlayer.load();
+            } else {
+                alert(data.message || '실시간 영상 정보를 가져올 수 없습니다.');
+            }
+        });
+    </script>
+</body>
+</html>
